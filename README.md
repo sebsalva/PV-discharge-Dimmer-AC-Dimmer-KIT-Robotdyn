@@ -1,3 +1,8 @@
+# Fork qui permet :
+ * d'arreter le client MQTT si pas de connection (sinon le dimmer bloque et reçoit mal les commande HTTP). Cette modification semble nécessaire pour utiliser le dimmer de façon autonome
+ * d'appeler le dimmer par via un nom : http://dimmer1.local avec l'ajout de mDNS
+ 
+
 # Numeric dimmer
 
 The Online Documentation is [HERE](https://pvrouteur.apper-solaire.org)
