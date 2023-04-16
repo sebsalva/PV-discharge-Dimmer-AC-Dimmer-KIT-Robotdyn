@@ -961,9 +961,10 @@ long currentm = 0;
     celsius=CheckTemperature("Inside : ", addr);
 
     //gestion des erreurs DS18B20
-    if ( (celsius == -127.00) || (celsius == -255.00) ) {
+    if ( (celsius < 20) || (celsius > 100) ) {
       celsius=previous_celsius;
     }
+    else celsius=10;
 
     if ( refreshcount >= refresh && celsius !=-127 && celsius !=-255) {
       mqtt(String(config.IDXTemp), String(celsius));  /// remonté MQTT de la température
@@ -973,7 +974,7 @@ long currentm = 0;
     }
 
 
-    delay(500);
+    delay(100);
   }
 
     //***********************************
@@ -1004,7 +1005,7 @@ if ((currentm - lastconnected > TIMERPING * 1000 ) && (dimmer.getState() > 0)) {
   logs += F("No request received, Dimmer set to Off\r\nn");
   Serial.println(F("No request received, Dimmer set to Off"));
 }
- delay(500);
+ delay(100);
 }
 ////fin de loop
 

@@ -75,7 +75,7 @@
 
 #define LIMITRECO 2 // NB MQTT connection attempts then state_topic
 
-#define TIMERPING 40 // delay during which a connection should be received.
+#define TIMERPING 90 // delay during which a connection should be received.
                      //Otherwise stop
 
 // nom mDNS pour accès http://xxx.local
