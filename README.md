@@ -1,8 +1,6 @@
 # Fork qui permet :
- * d'arreter le client MQTT si pas de connection (sinon le dimmer bloque et reçoit mal les commandes HTTP). Cette modification semble nécessaire pour utiliser le dimmer de façon autonome
  * d'appeler le dimmer via un nom : http://dimmer1.local avec l'ajout de mDNS
  * d'ajouter un controle de connectivité. Si pas de requète reçue avant xxs, Dimmer mis en arret
- * modification PIN pour JOTTA d4->D5 (sur D1 Mini pro D4 bloque le chargement)
  
 
 # Numeric dimmer
