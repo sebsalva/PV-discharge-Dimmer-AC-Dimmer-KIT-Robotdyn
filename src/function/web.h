@@ -58,7 +58,7 @@ extern HA device_dimmer_maxpow;
 extern HA device_dimmer_minpow;
 extern HA device_dimmer_starting_pow;
 extern HA device_dimmer_maxtemp;
-extern String dimmername;
+
 
 
 
@@ -83,6 +83,7 @@ extern Logs Logging;
 extern SSR_BURST ssr_burst;
 #endif
 
+//PING
 long lastconnected = 0;
 
 void call_pages() {
@@ -113,10 +114,18 @@ void call_pages() {
         float input=request->getParam(PARAM_INPUT_1)->value().toFloat();
 
         
-        
-        /// si remontée de puissance dispo alors prioritaire
-         if (request->hasParam("puissance")) { 
+          if (input==0) {
+            sysvar.puissance = 0 ;            // En %
+            //int dispo=0;                          // En % // on ne s'en sert pas, donc commenté
+            sysvar.puissance_dispo = 0;         // En W
+            sysvar.change = 0; // par sécurité, au cas ou le main n'aurait pas fini
+          }
+                  
+        // Modif RV - correction bug si dimmer configuré mais pas allumé ou planté
+          else if (sysvar.change == 1){}
                       
+/// si remontée de puissance dispo alors prioritaire
+          else if (request->hasParam("puissance")) {
 /// on recupère la puissance disponible  
             float dispo = request->getParam("puissance")->value().toFloat();
             DEBUG_PRINTLN("puissance="+String(dispo));
@@ -125,69 +134,43 @@ void call_pages() {
             sysvar.puissance_dispo = dispo;     // En W
             dispo = (100*dispo/config.charge);  // En %
  
-            /// si POWER=0 on coupe tout
-            if (input==0) {
-              sysvar.puissance = 0 ;            // En %
-              dispo=0;                          // En %
-              sysvar.puissance_dispo=0;         // En W
-            } 
-
-            ///  Modif RV - 18/02/2024
-            /// en rajoutant ce else on évite de ce palucher tous les calculs même quand il n'y a pas de puissance à router
-            else { 
-
-              /// Modif RV - 18/02/2024
-              /// Du coup ce else if devient un if 
-              ///
-              /// Je me suis tordu le neurone sur ce passage déjà l'année dernière avant de laisser tomber
-              /// J'ai essayé la semaine dernière en le commentant et cela fonctionnait mieux sans qu'avec
-              /// 
-              /// Je n'ai rien lâché et là je crois que je le tiens !
-              ///
+            
               /// si on dépasse le max, on calcule la puissance dispo restante pour un dimmer enfant
               if (unified_dimmer.get_power() + dispo >= config.maxpow ) {       // En %
                 sysvar.puissance_dispo = (config.dispo - ((config.maxpow - unified_dimmer.get_power()) * config.charge / 100));  // En W
-
               }
 
             // on égalise
-            if ( strcmp(config.child,"") != 0 && strcmp(config.mode,"equal") == 0  ) {
+            if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0 && strcmp(config.mode,"equal") == 0  ) {
               if ( (security == 1) || (unified_dimmer.get_power() >= config.maxpow) ) {
                 sysvar.puissance = sysvar.puissance + dispo;          // En %
                 sysvar.puissance_dispo = sysvar.puissance_dispo * 2 ; //  En W - On multiplie par 2 car la fonction child_communication() fera / 2
-                //logging.Set_log_init(" Mode \"equal\" - Full\r\n");
-              }
+                              }
               else { // Mode avec dimmer enfant en equal ET toujours en capacité de router localement de la puissance
               sysvar.puissance = sysvar.puissance + dispo/2;        // En %
-                  // sysvar.puissance_dispo est égal à ce qu'il était en haut et sera / par 2 par child_communication() donc on est bon
-                  // config.dispo est égal à ce qu'il était en haut  et on en n'a plus besoin de toutes façons
-                  //logging.Set_log_init(" Mode \"equal\" - Half\r\n");
-              }
+                  }
             }
             else {  // si mode sans dimmer enfant ou en mode délestage vers un fils
               sysvar.puissance = sysvar.puissance + dispo;            // En %
-                // sysvar.puissance_dispo est égal à ce qu'il était en haut, c'est bon
-                // config.dispo est égal à ce qu'il était en haut et on en n'a plus besoin de toutes façons
-              }
+                              }
          }
          
-         }
-
          else // uniquement la commande /?POWER= reçue
          {
            sysvar.puissance = input;
-           
-           sysvar.puissance_dispo = 0;
-           //config.dispo = 0; //on en n'a plus besoin à ce moment là
-           DEBUG_PRINTLN(("%d-input=" + String(input),__LINE__));
+                      sysvar.puissance_dispo = 0;
+                      DEBUG_PRINTLN(("%d-input=" + String(input),__LINE__));
          }
 
         // si config.child = 0.0.0.0 alors max = 100 
         int max = 200;
-        if (strcmp(config.child,"none") == 0 || strcmp(config.mode,"off") ==0 ) { max = 100; } 
+        if (strcmp(config.child,"none") == 0 || strcmp(config.mode,"off") == 0 ) { max = 100; } 
         if (sysvar.puissance >= max) {sysvar.puissance = max; }
         logging.Set_log_init("HTTP power at " + String(sysvar.puissance) + "%\r\n");
+// Modif RV - correction bug si dimmer configuré mais pas allumé ou planté
+        if (sysvar.change == 0) { 
         sysvar.change=1; 
+        }
         String pb=getState().c_str(); 
         pb = pb +String(sysvar.puissance) +" " + String(input) +" " + String(sysvar.puissance_dispo) ;
         request->send_P(200, "text/plain", pb.c_str() );  
@@ -219,6 +202,7 @@ void call_pages() {
     DEBUG_PRINTLN(("%d------------------",__LINE__));
   }); 
 
+//PING
 server.on("/state", HTTP_ANY, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", getState().c_str());
   //URL used for checking whether dimmer and router connected
@@ -245,9 +229,6 @@ server.on("/state", HTTP_ANY, [](AsyncWebServerRequest *request){
     }
   });
 
-  server.on("/state", HTTP_ANY, [](AsyncWebServerRequest *request){
-    request->send_P(200, "text/plain", getState().c_str());
-  });
 
   server.on("/resetwifi", HTTP_ANY, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/plain", "Resetting Wifi and reboot");
@@ -468,6 +449,7 @@ server.on("/get", HTTP_ANY, [] (AsyncWebServerRequest *request) {
     if (!AP && mqtt_config.mqtt) { device_dimmer_child_mode.send(String(config.mode));}
    }
 
+   if (request->hasParam("dimmername")) { request->getParam("dimmername")->value().toCharArray(config.say_my_name,100);}
    if (request->hasParam("SubscribePV")) { request->getParam("SubscribePV")->value().toCharArray(config.SubscribePV,100);}
    if (request->hasParam("SubscribeTEMP")) { request->getParam("SubscribeTEMP")->value().toCharArray(config.SubscribeTEMP,100);}
    if (request->hasParam("dimmer_on_off")) { 
@@ -586,7 +568,7 @@ String processor(const String& var){
     return (VERSION_http);
   } 
   if (var == "NAME"){
-    return (dimmername);
+    return (config.say_my_name);
   } 
   if (var == "RSSI"){
     return (String(WiFi.RSSI()));
@@ -599,10 +581,6 @@ String getconfig() {
   String configweb;  
   DynamicJsonDocument doc(512);  
   //   +  config.mode + ";" + config.SubscribePV + ";" + config.SubscribeTEMP + ";" + config.dimmer_on_off ;
-    doc["IDX"] = config.IDX;
-    doc["idxtemp"] = config.IDXTemp;
-    doc["IDXAlarme"] = config.IDXAlarme;
-
     doc["maxtemp"] = config.maxtemp;
 
     doc["startingpow"] = config.startingpow;
@@ -616,6 +594,7 @@ String getconfig() {
     doc["SubscribeTEMP"] = config.SubscribeTEMP;
     doc["dimmer_on_off"] = config.dimmer_on_off;
     doc["charge"] = config.charge;
+    doc["dimmername"] = config.say_my_name;
   
   serializeJson(doc, configweb);
   return String(configweb);
@@ -662,6 +641,9 @@ String getmqtt() {
     doc["user"] = mqtt_config.username;
     doc["password"] = mqtt_config.password;
     doc["MQTT"] = mqtt_config.mqtt;
+    doc["IDX"] = config.IDX;
+    doc["idxtemp"] = config.IDXTemp;
+    doc["IDXAlarme"] = config.IDXAlarme;
   serializeJson(doc, retour);
   return String(retour) ;
 }
@@ -680,8 +662,9 @@ String getcomplement() {
 
 
 String readmqttsave(){
-        String node_mac = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
-        String node_id = String("dimmer-") + node_mac; 
+        //String node_mac = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
+        //String node_id = String("dimmer-") + node_mac; 
+        String node_id = config.say_my_name;
         String save_command = String("Xlyric/sauvegarde/"+ node_id );
         client.subscribe(save_command.c_str(),1);
         return String("<html><head><meta http-equiv='refresh' content='5;url=config.html' /></head><body><h1>config restauree, retour au setup dans 5 secondes, pensez a sauvegarder sur la flash </h1></body></html>");

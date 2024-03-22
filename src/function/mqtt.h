@@ -60,9 +60,10 @@ char buffer[1024];
   /// @param message 
   /// @param length 
 
-  String node_mac = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
+  //String node_mac = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
   // String node_ids = WiFi.macAddress().substring(0,2)+ WiFi.macAddress().substring(4,6)+ WiFi.macAddress().substring(8,10) + WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17); // non utilisé
-  String node_id = String("dimmer-") + node_mac; 
+  //String node_id = String("dimmer-") + node_mac; 
+  String node_id = config.say_my_name;
   String switch_command = String("homeassistant/switch/"+ node_id + "/command");
   String number_command = String("homeassistant/number/"+ node_id + "/command");
   String select_command = String("homeassistant/select/"+ node_id + "/command");
@@ -325,23 +326,15 @@ void mqtt(String idx, String value, String name="")
 
 void child_communication(int delest_power, bool equal = false){
 
-  
-  
-  logging.Set_log_init(" -> ");
-  logging.Set_log_init(String(delest_power).c_str());
-  //int instant_power ;
-  int tmp_puissance_dispo=0 ;
+    int tmp_puissance_dispo=0 ;
   String baseurl; 
-  //instant_power = delest_power*config.charge/100;
-  baseurl = "/?POWER=" + String(delest_power); 
+    baseurl = "/?POWER=" + String(delest_power); 
   
   /// Modif RV 20240219
   /// Ajout de " delest_power != 0" pour ne pas envoyer une demande de puissance si on le passe de toutes façons à 0
   if (sysvar.puissance_dispo !=0 && delest_power != 0) {  
     baseurl.concat("&puissance=");
-    //if (strcmp(config.mode,"equal") == 0) { baseurl.concat(String(sysvar.puissance_dispo/2)); }
-    //else { baseurl.concat(String(sysvar.puissance_dispo)); }
-    if ( strcmp(config.child,"") != 0 && strcmp(config.mode,"equal") == 0 ) { tmp_puissance_dispo = sysvar.puissance_dispo/2;}
+    if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0 && strcmp(config.mode,"equal") == 0 ) { tmp_puissance_dispo = sysvar.puissance_dispo/2;}
     else { tmp_puissance_dispo = sysvar.puissance_dispo; }
       baseurl.concat(String(tmp_puissance_dispo)); 
   }
@@ -350,17 +343,16 @@ void child_communication(int delest_power, bool equal = false){
   http.begin(domotic_client,config.child,80,baseurl); 
   http.GET();
   http.end(); 
-  
+  /*
   logging.Set_log_init("child at ");
   logging.Set_log_init(String(delest_power).c_str());
   logging.Set_log_init("% _ ");
   logging.Set_log_init(String(tmp_puissance_dispo).c_str());
   logging.Set_log_init("W\r\n");
-  
+  */
 }
 
-//// communication avec carte fille ( HTTP )
-
+//PING
 void child_communication_state(void){
 
   String baseurl; 
@@ -401,8 +393,9 @@ void connect_and_subscribe() {
         client.subscribe(select_command.c_str(),1);
         client.subscribe(button_command.c_str(),1);
 
-        String node_mac = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
-        String node_id = String("dimmer-") + node_mac; 
+        //String node_mac = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
+        //String node_id = String("dimmer-") + node_mac; 
+        String node_id = config.say_my_name;
         String save_command = String("Xlyric/sauvegarde/"+ node_id );
         //client.subscribe(save_command.c_str());
         int instant_power = sysvar.puissance;  // 

@@ -10,7 +10,7 @@
 //#define MQTT_USER ""   //// not used, use mqtt.json file  --> to delete 01/23
 //#define MQTT_PASSWORD ""  //// not used, use mqtt.json file --> to delete 01/23
 
-#define VERSION "Version 20240308" 
+#define VERSION "Version 20240316" 
 
 /// default configuration for Dimmer with Power supply and D1 Mini on the board ( default : D0 - D1 )
 #ifdef  POWERSUPPLY
@@ -120,11 +120,9 @@
     #define DEBUG_PRINTLN(x)
   #endif
 
+//PING
 #define TIMERPING 90 // delay during which a connection should be received.
                      //Otherwise stop
-
-// nom mDNS pour accès http://xxx.local
-#define M_DNS "dimmer-"
 
 #endif
 

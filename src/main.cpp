@@ -77,6 +77,7 @@
 #endif
 // Web services
 #include <ESPAsyncWiFiManager.h> 
+
 #include <ESP8266mDNS.h>  // multicast DNS
 #include <ESPAsyncWebServer.h>
 
@@ -196,6 +197,7 @@ void dallaspresent ();
 String routeur="PV-ROUTER";
 bool AP = false; 
 bool discovery_temp;
+
 String dimmername ="";
 
 OneWire  ds(ONE_WIRE_BUS);  //  (a 4.7K resistor is necessary - 5.7K work with 3.3 ans 5V power)
@@ -431,7 +433,12 @@ void setup() {
           Serial.print(String(wifi_config_fixe.static_ip));
     }
 
-    wifiManager.autoConnect(("dimmer-"+WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17)).c_str());
+    if (strcmp(config.say_my_name, "") == 0) {
+      strcpy(config.say_my_name, ("Dimmer-"+WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17)).c_str());
+    }
+    wifiManager.autoConnect(config.say_my_name);
+    
+    
     
     DEBUG_PRINTLN("end Wifiautoconnect");
     wifiManager.setSaveConfigCallback(saveConfigCallback);
@@ -452,8 +459,11 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  // change le nom du device en fonction de l'adresse MAC
-  WiFi.setHostname(("Dimmer-"+WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17)).c_str());
+
+    WiFi.setHostname(config.say_my_name);
+
+  //***********************************
+
 
    /// restart si la configuration OP static est différente ip affectée suite changement ip Autoconf
   if ( !strcmp(wifi_config_fixe.static_ip, "" ) == 0 )  {
@@ -487,7 +497,9 @@ void setup() {
       AP = true; 
   }
 
-  dimmername = WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17); 
+
+  
+
 
     //***********************************
     //************* Setup - OTA 
@@ -560,12 +572,12 @@ Task_GET_POWER.enable();
 DEBUG_PRINTLN(ESP.getFreeHeap());
 
  //mDNS
- String ad = M_DNS + WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
+ //String ad = M_DNS + WiFi.macAddress().substring(12,14)+ WiFi.macAddress().substring(15,17);
 
-  if (MDNS.begin(ad)) {
+  if (MDNS.begin(config.say_my_name)) {
     MDNS.addService("http", "tcp", 80);
-    Serial.println(F("start mDNS : http://")+ad+F(".local"));
-   logging.Set_log_init("start mDNS : http://"+ad+F(".local"));
+    Serial.println(F("start mDNS : http://")+String(config.say_my_name)+F(".local"));
+   logging.Set_log_init("start mDNS : http://"+String(config.say_my_name)+F(".local"));
 }
 
 /// affichage de l'heure  GMT +1 dans la log
@@ -725,7 +737,7 @@ long currentm = 0;
   ////////////////// control de la puissance /////////////////
 
   if ( sysvar.change == 1  && programme.run == false ) {   /// si changement et pas de minuteur en cours
-    sysvar.change = 0; 
+    // sysvar.change = 0; sisi, j'insiste, faut le mettre à la fin 
     if (config.dimmer_on_off == 0){
               unified_dimmer.dimmer_off();
     }
@@ -735,7 +747,7 @@ long currentm = 0;
     DEBUG_PRINTLN(sysvar.puissance);
 
    if (sysvar.puissance_cumul != 0) {
-      if ( strcmp(config.child,"") != 0 && strcmp(config.mode,"off") == 0 ) {
+      if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0 && strcmp(config.mode,"off") == 0 ) {
         child_communication(0,false); 
         // Du coup je force sysvar.puissance_cumul à 0 puisque Task_GET_POWER ne renverra plus rien désormais
         // ça évitera dans rentrer dans cette boucle à l'infini en bombardant le dimmer d'ordres à 0 pour rien
@@ -758,11 +770,15 @@ long currentm = 0;
               dimmer2.setPower(config.maxpow);
             #endif
           }
-          /// si on a une carte fille, on envoie la commande 
-          if ( strcmp(config.child,"") != 0 && strcmp(config.mode,"off") != 0 ) {
+          /// si on a une carte fille et qu'elle n'est pas configurée sur off, on envoie la commande 
+          if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0 && strcmp(config.mode,"off") != 0 ) {
               //if ( strcmp(config.mode,"delester") == 0 ) { child_communication(int((sysvar.puissance-config.maxpow)*FACTEUR_REGULATION),true ); } // si mode délest, envoi du surplus
-              if ( strcmp(config.mode,"delester") == 0 ) { child_communication(int((sysvar.puissance-config.maxpow)),true ); } // si mode délest, envoi du surplus
-              if ( strcmp(config.mode,"equal") == 0) { child_communication(sysvar.puissance,true); }  //si mode equal envoie de la commande vers la carte fille
+              if ( strcmp(config.mode,"delester") == 0 ) { 
+                child_communication(int((sysvar.puissance-config.maxpow)),true );  // si mode délest, envoi du surplus
+              }
+              if ( strcmp(config.mode,"equal") == 0) { 
+                child_communication(sysvar.puissance,true);   //si mode equal envoie de la commande vers la carte fille
+}
           }
         DEBUG_PRINTLN(("%d------------------",__LINE__));
         DEBUG_PRINTLN(sysvar.puissance);
@@ -778,10 +794,10 @@ long currentm = 0;
         }
           logging.Set_log_init("dimmer at " );
           logging.Set_log_init(String(sysvar.puissance).c_str()); 
-          logging.Set_log_init("\r\n");
+          logging.Set_log_init("%\r\n");
 
 
-          if ( strcmp(config.child,"") != 0 ) {
+          if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0 ) {
              //int puissance_regulee = sysvar.puissance*FACTEUR_REGULATION;
               //if ( strcmp(config.mode,"equal") == 0) { child_communication(int(sysvar.puissance*FACTEUR_REGULATION),true); childsend = 0;}  //si mode equal envoie de la commande vers la carte fille
             //if ( strcmp(config.mode,"delester") == 0 && sysvar.puissance < config.maxpow) { child_communication(0,false); childsend = 0; }  //si mode délest envoie d'une commande à 0
@@ -791,12 +807,12 @@ long currentm = 0;
             }  //si mode equal envoie de la commande vers la carte fille
             if ( strcmp(config.mode,"delester") == 0 && sysvar.puissance <= config.maxpow) { 
               child_communication(0,false); 
-              logging.Set_log_init("Child at 0\r\n"); 
+              //logging.Set_log_init("Child at 0\r\n"); 
             }  //si mode délest envoie d'une commande à 0
 
             if ( strcmp(config.mode,"delester") == 0 && sysvar.puissance > config.maxpow) { // si sysvar.puissance passe subitement au dessus de config.maxpow
               child_communication(int((sysvar.puissance-config.maxpow)),true );
-              logging.Set_log_init("===> Cas oublié <===\r\n");
+              //logging.Set_log_init("===> Cas oublié <===\r\n");
             }
               DEBUG_PRINTLN(("%d  -----------------",__LINE__));
               DEBUG_PRINTLN(sysvar.puissance);
@@ -838,7 +854,7 @@ long currentm = 0;
     else if ( sysvar.puissance != 0 && security == 1)
     {
 
-      if ( strcmp(config.child,"") != 0 || strcmp(config.mode,"off") != 0) {
+      if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0  && strcmp(config.mode,"off") != 0) {
         if (sysvar.puissance > 200 ) {sysvar.puissance = 200 ;}
 
         if ( strcmp(config.mode,"delester") == 0 ) { child_communication(int(sysvar.puissance) ,true); childsend = 0 ; } // si mode délest, envoi du surplus
@@ -851,7 +867,7 @@ long currentm = 0;
         unified_dimmer.set_power(0);
         unified_dimmer.dimmer_off();
               /// et sur les sous routeur 
-        if ( strcmp(config.child,"") != 0 ) {
+        if ( strcmp(config.child,"") != 0 && strcmp(config.child,"none") != 0 ) {
             if ( strcmp(config.mode,"delester") == 0 ) { child_communication(0,false); } // si mode délest, envoi du surplus
             if ( strcmp(config.mode,"equal") == 0) { child_communication(0,false); }  //si mode equal envoie de la commande vers la carte fille
             if ( strcmp(config.mode,"off") != 0) {
@@ -885,6 +901,7 @@ long currentm = 0;
 
     }
     
+  sysvar.change = 0; /// déplacé ici à la fin
   }
 
     //***********************************
@@ -912,7 +929,7 @@ if ( sysvar.celsius >= config.maxtemp && security == 0 ) {
     MDNS.update();
 
 
-// vérification connection dimmer - router
+// vérification PING connection dimmer - router
 currentm = millis();
 if ((currentm - lastconnected > TIMERPING * 1000 ) && (unified_dimmer.get_power() > 0)) { 
 
