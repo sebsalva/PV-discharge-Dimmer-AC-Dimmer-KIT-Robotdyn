@@ -943,7 +943,7 @@ if ((currentm - lastconnected > TIMERPING * 1000 ) && (unified_dimmer.get_power(
   logging.Set_log_init("No request received, Dimmer set to Off\r\n");
   Serial.println(F("No request received, Dimmer set to Off"));
 }
-if ((currentm - lastconnected > (TIMERPING -10)* 1000 ) && ( strcmp(config.mode,"off") != 0)) 
+if ((currentm - lastconnected > (TIMERPING -10)* 1000 ) &&  (strcmp(config.mode,"off") != 0) && (unified_dimmer.get_power() > 0))
 {  
 child_communication_state();
 logging.Set_log_init("Ping child dimmer\r\n");

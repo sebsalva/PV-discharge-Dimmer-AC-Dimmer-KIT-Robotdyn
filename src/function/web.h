@@ -110,7 +110,8 @@ void call_pages() {
 #endif
 
       if (request->hasParam(PARAM_INPUT_1)) { 
-
+          //PING
+           lastconnected = millis(); 
         float input=request->getParam(PARAM_INPUT_1)->value().toFloat();
 
         
@@ -173,7 +174,8 @@ void call_pages() {
         }
         String pb=getState().c_str(); 
         pb = pb +String(sysvar.puissance) +" " + String(input) +" " + String(sysvar.puissance_dispo) ;
-        request->send_P(200, "text/plain", pb.c_str() );  
+        request->send_P(200, "text/plain", pb.c_str() ); 
+         
       } 
       
               else if (request->hasParam(PARAM_INPUT_2)) { 
